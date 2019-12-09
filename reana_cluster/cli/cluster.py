@@ -33,12 +33,16 @@ from reana_commons.utils import click_table_printer
     is_flag=True,
     help='NOT IMPLEMENTED.\n'
          'If set, also persistent storage inside the cluster is deleted.')
+@click.option(
+    '--namespace',
+    default='default',
+    help='Namespace of the components which configuration should be deleted.')
 @click.pass_context
-def down(ctx, remove_persistent_storage):
+def down(ctx, remove_persistent_storage, namespace):
     """Bring REANA cluster down, i.e. deletes all deployed components."""
     try:
-        delete_reana_db_secret()
-        ctx.obj.backend.down()
+        delete_reana_db_secret(namespace)
+        ctx.obj.backend.down(namespace)
     except Exception as e:
         logging.debug(str(e))
 
@@ -161,11 +165,14 @@ def restart(ctx, remove_persistent_storage):
     '--generate-db-secrets', is_flag=True,
     help='Create all necessary database secrets. Do not use this in'
          'production deployments.')
+@click.option(
+    '--namespace', default='default',
+    help='Kubernetes namespace name to deploy reana-server')
 @click.pass_context
-def init(ctx, skip_initialization, output, traefik, generate_db_secrets):
+def init(ctx, skip_initialization, output, traefik, namespace, generate_db_secrets):
     """Initialize REANA cluster."""
     try:
-        reana_db_secret_exists = is_reana_db_secret_created()
+        reana_db_secret_exists = is_reana_db_secret_created(namespace)
         if not reana_db_secret_exists and generate_db_secrets:
             create_reana_db_secret()
         elif not reana_db_secret_exists:
@@ -180,7 +187,7 @@ def init(ctx, skip_initialization, output, traefik, generate_db_secrets):
             logging.info('Connecting to {cluster} at {url}'
                          .format(cluster=backend.cluster_type,
                                  url=backend.cluster_url))
-            backend.init(traefik)
+            backend.init(namespace, traefik)
             click.echo(
                 click.style("REANA cluster is initialised.", fg='green'))
 

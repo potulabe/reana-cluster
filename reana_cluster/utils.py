@@ -116,11 +116,12 @@ def build_component_url(host, ports, insecure=False):
         scheme=scheme, host=host, port=port)
 
 
-def is_reana_db_secret_created():
+def is_reana_db_secret_created(namespace):
     """Check if the REANA DB secret is created."""
     try:
-        cmd = 'kubectl describe secret {0}'.format(
-            DEFAULT_REANA_DB_SECRET_NAME)
+        cmd = 'kubectl describe secret {0} --namespace={namespace}'.format(
+            DEFAULT_REANA_DB_SECRET_NAME,
+            namespace=namespace)
         result = subprocess.check_output(cmd, shell=True)
         output = result.decode('utf-8')
         if 'user' in output and 'password' in output:
@@ -148,12 +149,13 @@ def create_reana_db_secret():
         sys.exit(err.returncode)
 
 
-def delete_reana_db_secret():
+def delete_reana_db_secret(namespace):
     """Delete REANA DB secret."""
     try:
-        if is_reana_db_secret_created():
-            cmd = 'kubectl delete secret  {}'.format(
-                DEFAULT_REANA_DB_SECRET_NAME)
+        if is_reana_db_secret_created(namespace):
+            cmd = 'kubectl delete secret --namespace={namespace} {}'.format(
+                DEFAULT_REANA_DB_SECRET_NAME,
+                namespace=namespace)
             result = subprocess.check_output(cmd, shell=True)
             logging.info(result)
     except subprocess.CalledProcessError as err:

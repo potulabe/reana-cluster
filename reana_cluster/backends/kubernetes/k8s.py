@@ -322,7 +322,7 @@ class KubernetesBackend(ReanaBackendABC):
         # independent YAML documents (split from `---`) as Python objects.
         return yaml.load_all(cluster_conf, Loader=yaml.FullLoader)
 
-    def init(self, traefik):
+    def init(self, namespace, traefik):
         """Initialize REANA cluster, i.e. deploy REANA components to backend.
 
         :param traefik: Boolean flag determines if traefik should be
@@ -359,11 +359,11 @@ class KubernetesBackend(ReanaBackendABC):
                         ['reana-server', 'workflow-controller']
                     if manifest['metadata']['name'] in components_k8s_token:
                         manifest = self._add_service_acc_key_to_component(
-                            manifest)
+                            namespace, manifest)
                     self._appsv1api.create_namespaced_deployment(
                         body=manifest,
                         namespace=manifest['metadata'].get('namespace',
-                                                           'default'))
+                                                           namespace))
 
                 elif manifest['kind'] == 'Namespace':
                     self._corev1api.create_namespace(body=manifest)
@@ -371,25 +371,34 @@ class KubernetesBackend(ReanaBackendABC):
                 elif manifest['kind'] == 'ResourceQuota':
                     self._corev1api.create_namespaced_resource_quota(
                         body=manifest,
-                        namespace=manifest['metadata']['namespace'])
+                        namespace=manifest['metadata'].get('namespace',
+                                                           namespace))
 
                 elif manifest['kind'] == 'Service':
                     self._corev1api.create_namespaced_service(
                         body=manifest,
                         namespace=manifest['metadata'].get('namespace',
-                                                           'default'))
+                                                           namespace))
+
                 elif manifest['kind'] == 'ClusterRole':
+                    ns = manifest['metadata'].get('namespace',
+                                                  namespace)
+                    manifest['metadata'].update({'namespace': ns})
                     self._rbacauthorizationv1api.create_cluster_role(
                         body=manifest)
                 elif manifest['kind'] == 'ClusterRoleBinding':
-                    self._rbacauthorizationv1api.\
-                        create_cluster_role_binding(body=manifest)
+                    for subject in manifest['subjects']:
+                        ns = subject.get('namespace', namespace)
+                        subject.update({'namespace': ns})
+                    self._rbacauthorizationv1api. \
+                        create_cluster_role_binding(
+                        body=manifest)
 
                 elif manifest['kind'] == 'Ingress':
                     self._extbetav1api.create_namespaced_ingress(
                         body=manifest,
                         namespace=manifest['metadata'].get('namespace',
-                                                           'default'))
+                                                           namespace))
 
                 elif manifest['kind'] == 'StorageClass':
                     self._storagev1api.create_storage_class(body=manifest)
@@ -398,13 +407,13 @@ class KubernetesBackend(ReanaBackendABC):
                     self._corev1api.create_namespaced_persistent_volume_claim(
                         body=manifest,
                         namespace=manifest['metadata'].get('namespace',
-                                                           'default'))
+                                                           namespace))
 
                 elif manifest['kind'] == 'ConfigMap':
                     self._corev1api.create_namespaced_config_map(
                         body=manifest,
                         namespace=manifest['metadata'].get('namespace',
-                                                           'default'))
+                                                           namespace))
 
             except ApiException as e:  # Handle K8S API errors
 
@@ -465,7 +474,7 @@ class KubernetesBackend(ReanaBackendABC):
             logging.error('Traefik initialization failed \n {}.'.format(e))
             raise e
 
-    def _add_service_acc_key_to_component(self, component_manifest):
+    def _add_service_acc_key_to_component(self, namespace, component_manifest):
         """Add K8S service account credentials to a component.
 
         In order to interact (e.g. create Pods to run workflows) with
@@ -484,7 +493,7 @@ class KubernetesBackend(ReanaBackendABC):
         # Get all secrets for default namespace
         # Cannot use `k8s_corev1.read_namespaced_secret()` since
         # exact name of the token (e.g. 'default-token-8p260') is not know.
-        secrets = self._corev1api.list_namespaced_secret('default')
+        secrets = self._corev1api.list_namespaced_secret(namespace)
 
         # Maybe debug print all secrets should not be enabled?
         # logging.debug(k8s_corev1.list_secret_for_all_namespaces())
@@ -528,7 +537,7 @@ class KubernetesBackend(ReanaBackendABC):
         """
         raise NotImplementedError()
 
-    def down(self):
+    def down(self, namespace):
         """Bring REANA cluster down, i.e. deletes all deployed components.
 
         Deletes all Kubernetes Deployments, Namespaces, Resourcequotas and
@@ -564,7 +573,7 @@ class KubernetesBackend(ReanaBackendABC):
                             propagation_policy="Foreground",
                             grace_period_seconds=5),
                         namespace=manifest['metadata'].get('namespace',
-                                                           'default'))
+                                                           namespace))
 
                 elif manifest['kind'] == 'Namespace':
                     self._corev1api.delete_namespace(
@@ -576,14 +585,14 @@ class KubernetesBackend(ReanaBackendABC):
                         name=manifest['metadata']['name'],
                         body=k8s_client.V1DeleteOptions(),
                         namespace=manifest['metadata'].get('namespace',
-                                                           'default'))
+                                                           namespace))
 
                 elif manifest['kind'] == 'Service':
                     self._corev1api.delete_namespaced_service(
                         name=manifest['metadata']['name'],
                         body=k8s_client.V1DeleteOptions(),
                         namespace=manifest['metadata'].get('namespace',
-                                                           'default'))
+                                                           namespace))
 
                 elif manifest['kind'] == 'ClusterRole':
                     self._rbacauthorizationv1api.delete_cluster_role(
@@ -598,10 +607,10 @@ class KubernetesBackend(ReanaBackendABC):
 
                 elif manifest['kind'] == 'Ingress':
                     self._extbetav1api.delete_namespaced_ingress(
-                            name=manifest['metadata']['name'],
-                            body=k8s_client.V1DeleteOptions(),
-                            namespace=manifest['metadata'].get('namespace',
-                                                               'default'))
+                        name=manifest['metadata']['name'],
+                        body=k8s_client.V1DeleteOptions(),
+                        namespace=manifest['metadata'].get('namespace',
+                                                           namespace))
 
                 elif manifest['kind'] == 'StorageClass':
                     self._storagev1api.delete_storage_class(
@@ -611,10 +620,10 @@ class KubernetesBackend(ReanaBackendABC):
                 elif manifest['kind'] == 'PersistentVolumeClaim':
                     self._corev1api.\
                         delete_namespaced_persistent_volume_claim(
-                            name=manifest['metadata']['name'],
-                            body=k8s_client.V1DeleteOptions(),
-                            namespace=manifest['metadata'].get('namespace',
-                                                               'default'))
+                        name=manifest['metadata']['name'],
+                        body=k8s_client.V1DeleteOptions(),
+                        namespace=manifest['metadata'].get('namespace',
+                                                           namespace))
 
             except ApiException as e:  # Handle K8S API errors
 
@@ -629,15 +638,15 @@ class KubernetesBackend(ReanaBackendABC):
 
         # delete all CVMFS persistent volume claims
         pvcs = self._corev1api.list_namespaced_persistent_volume_claim(
-            'default')
+            namespace)
         for pvc in pvcs.items:
             if pvc.metadata.name.startswith('csi-cvmfs-'):
-                self._corev1api.\
-                        delete_namespaced_persistent_volume_claim(
-                            name=pvc.metadata.name,
-                            body=k8s_client.V1DeleteOptions(),
-                            namespace=manifest['metadata'].get('namespace',
-                                                               'default'))
+                self._corev1api. \
+                    delete_namespaced_persistent_volume_claim(
+                    name=pvc.metadata.name,
+                    body=k8s_client.V1DeleteOptions(),
+                    namespace=manifest['metadata'].get('namespace',
+                                                       namespace))
         # delete all CVMFS storage classes
         scs = self._storagev1api.list_storage_class()
         for sc in scs.items:
