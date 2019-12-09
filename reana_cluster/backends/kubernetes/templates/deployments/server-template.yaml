@@ -57,6 +57,8 @@ spec:
             secretKeyRef:
               name: reana-db-secrets
               key: password
+        - name: REANA_SQLALCHEMY_DATABASE_URI
+          value: postgresql+psycopg2://$(REANA_DB_USERNAME):$(REANA_DB_PASSWORD)@$(REANA_DB_HOST):$(REANA_DB_PORT)/$(REANA_DB_NAME)
         {% endif %}
       - name: scheduler
         image: {{SERVER_IMAGE}}
