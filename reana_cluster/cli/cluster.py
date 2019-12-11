@@ -272,7 +272,7 @@ def cli_verify_components(ctx):
 
 
 @click.command(help='Display the status of each component'
-               ' and if the cluster is ready.')
+                    ' and if the cluster is ready.')
 @click.option(
     '--component',
     default=None,

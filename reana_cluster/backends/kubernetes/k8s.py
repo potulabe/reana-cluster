@@ -322,7 +322,7 @@ class KubernetesBackend(ReanaBackendABC):
         # independent YAML documents (split from `---`) as Python objects.
         return yaml.load_all(cluster_conf, Loader=yaml.FullLoader)
 
-    def init(self, namespace, traefik):
+    def init(self, namespace='default', traefik=False):
         """Initialize REANA cluster, i.e. deploy REANA components to backend.
 
         :param traefik: Boolean flag determines if traefik should be
@@ -537,7 +537,7 @@ class KubernetesBackend(ReanaBackendABC):
         """
         raise NotImplementedError()
 
-    def down(self, namespace):
+    def down(self, namespace='default'):
         """Bring REANA cluster down, i.e. deletes all deployed components.
 
         Deletes all Kubernetes Deployments, Namespaces, Resourcequotas and
@@ -572,8 +572,7 @@ class KubernetesBackend(ReanaBackendABC):
                         body=k8s_client.V1DeleteOptions(
                             propagation_policy="Foreground",
                             grace_period_seconds=5),
-                        namespace=manifest['metadata'].get('namespace',
-                                                           namespace))
+                        namespace=manifest['metadata'].get('namespace', namespace))
 
                 elif manifest['kind'] == 'Namespace':
                     self._corev1api.delete_namespace(
@@ -614,16 +613,15 @@ class KubernetesBackend(ReanaBackendABC):
 
                 elif manifest['kind'] == 'StorageClass':
                     self._storagev1api.delete_storage_class(
-                            name=manifest['metadata']['name'],
-                            body=k8s_client.V1DeleteOptions())
+                        name=manifest['metadata']['name'],
+                        body=k8s_client.V1DeleteOptions())
 
                 elif manifest['kind'] == 'PersistentVolumeClaim':
                     self._corev1api.\
                         delete_namespaced_persistent_volume_claim(
-                        name=manifest['metadata']['name'],
-                        body=k8s_client.V1DeleteOptions(),
-                        namespace=manifest['metadata'].get('namespace',
-                                                           namespace))
+                            name=manifest['metadata']['name'],
+                            body=k8s_client.V1DeleteOptions(),
+                            namespace=manifest['metadata'].get('namespace', namespace))
 
             except ApiException as e:  # Handle K8S API errors
 
@@ -643,10 +641,10 @@ class KubernetesBackend(ReanaBackendABC):
             if pvc.metadata.name.startswith('csi-cvmfs-'):
                 self._corev1api. \
                     delete_namespaced_persistent_volume_claim(
-                    name=pvc.metadata.name,
-                    body=k8s_client.V1DeleteOptions(),
-                    namespace=manifest['metadata'].get('namespace',
-                                                       namespace))
+                        name=pvc.metadata.name,
+                        body=k8s_client.V1DeleteOptions(),
+                        namespace=manifest['metadata'].get('namespace',
+                                                           namespace))
         # delete all CVMFS storage classes
         scs = self._storagev1api.list_storage_class()
         for sc in scs.items:
@@ -717,7 +715,6 @@ class KubernetesBackend(ReanaBackendABC):
             for item in nodeconf.items:
                 if item.metadata.name == 'minikube' or \
                         item.metadata.name == self.kubeconfig_context:
-
                     # Running on minikube --> get ip-addr
                     minikube_ip = subprocess.check_output(['minikube', 'ip'])
                     minikube_ip = minikube_ip.decode("utf-8")
@@ -731,7 +728,7 @@ class KubernetesBackend(ReanaBackendABC):
             logging.debug(comp)
             comp_info['external_name'] = comp.spec.external_name
             comp_info['external_ip_s'] = [minikube_ip] or \
-                comp.spec.external_i_ps
+                                         comp.spec.external_i_ps
             comp_info['internal_ip'] = comp.spec.external_i_ps
 
             if component_name_without_prefix == 'server':
@@ -982,6 +979,7 @@ class KubernetesBackend(ReanaBackendABC):
         :rtype: dict
 
         """
+
         def _write_status(pod, component_name, components_status):
             """Determine the component status."""
             if pod.status.container_statuses:

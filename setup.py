@@ -51,7 +51,6 @@ install_requires = [
 
 packages = find_packages()
 
-
 # Get the version string. Cannot be done with import!
 with open(os.path.join('reana_cluster', 'version.py'), 'rt') as f:
     version = re.search(
