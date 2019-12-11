@@ -981,7 +981,6 @@ class KubernetesBackend(ReanaBackendABC):
         :rtype: dict
 
         """
-
         def _write_status(pod, component_name, components_status):
             """Determine the component status."""
             if pod.status.container_statuses:

@@ -94,7 +94,6 @@ def build_component_url(host, ports, insecure=False):
     :returns: Full URL to the component.
     :rtype: str
     """
-
     def _discover_https_port(ports):
         https_ports = [443, 30443]
         https_port_index = None
