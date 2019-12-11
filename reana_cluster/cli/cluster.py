@@ -169,7 +169,12 @@ def restart(ctx, remove_persistent_storage):
     '--namespace', default='default',
     help='Kubernetes namespace name to deploy reana-server')
 @click.pass_context
-def init(ctx, skip_initialization, output, traefik, namespace, generate_db_secrets):
+def init(ctx,
+         skip_initialization,
+         output,
+         traefik,
+         namespace,
+         generate_db_secrets):
     """Initialize REANA cluster."""
     try:
         reana_db_secret_exists = is_reana_db_secret_created(namespace)

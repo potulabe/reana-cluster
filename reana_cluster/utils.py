@@ -139,9 +139,9 @@ def create_reana_db_secret():
         cmd = 'kubectl create secret generic  {reana_db_secret_name}' \
               ' --from-literal=user={user}' \
               ' --from-literal=password="{password}"'.format(
-            reana_db_secret_name=DEFAULT_REANA_DB_SECRET_NAME,
-            user=DEFAULT_REANA_DB_USER,
-            password=generate_password())
+                    reana_db_secret_name=DEFAULT_REANA_DB_SECRET_NAME,
+                    user=DEFAULT_REANA_DB_USER,
+                    password=generate_password())
         result = subprocess.check_output(cmd, shell=True)
         logging.info(result)
     except subprocess.CalledProcessError as err:

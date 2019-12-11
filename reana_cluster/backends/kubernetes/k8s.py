@@ -268,7 +268,7 @@ class KubernetesBackend(ReanaBackendABC):
                     .get('mountpoints', [])
 
                 # Render the template using given backend config parameters
-                cluster_conf = template.\
+                cluster_conf = template. \
                     render(backend_conf_parameters,
                            REANA_URL=cluster_spec['cluster'].get(
                                'reana_url',
@@ -392,7 +392,7 @@ class KubernetesBackend(ReanaBackendABC):
                         subject.update({'namespace': ns})
                     self._rbacauthorizationv1api. \
                         create_cluster_role_binding(
-                        body=manifest)
+                            body=manifest)
 
                 elif manifest['kind'] == 'Ingress':
                     self._extbetav1api.create_namespaced_ingress(
@@ -572,7 +572,8 @@ class KubernetesBackend(ReanaBackendABC):
                         body=k8s_client.V1DeleteOptions(
                             propagation_policy="Foreground",
                             grace_period_seconds=5),
-                        namespace=manifest['metadata'].get('namespace', namespace))
+                        namespace=manifest['metadata'].get('namespace',
+                                                           namespace))
 
                 elif manifest['kind'] == 'Namespace':
                     self._corev1api.delete_namespace(
@@ -621,7 +622,8 @@ class KubernetesBackend(ReanaBackendABC):
                         delete_namespaced_persistent_volume_claim(
                             name=manifest['metadata']['name'],
                             body=k8s_client.V1DeleteOptions(),
-                            namespace=manifest['metadata'].get('namespace', namespace))
+                            namespace=manifest['metadata'].get('namespace',
+                                                               namespace))
 
             except ApiException as e:  # Handle K8S API errors
 
@@ -728,7 +730,7 @@ class KubernetesBackend(ReanaBackendABC):
             logging.debug(comp)
             comp_info['external_name'] = comp.spec.external_name
             comp_info['external_ip_s'] = [minikube_ip] or \
-                                         comp.spec.external_i_ps
+                comp.spec.external_i_ps
             comp_info['internal_ip'] = comp.spec.external_i_ps
 
             if component_name_without_prefix == 'server':
