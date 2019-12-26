@@ -16,14 +16,12 @@ import traceback
 
 import click
 import yaml
-from reana_cluster.config import (DEFAULT_REANA_DB_SECRET_NAME,
-                                  reana_cluster_ready_necessary_components,
-                                  reana_env_exportable_info_components)
-from reana_cluster.utils import (build_component_url, create_reana_db_secret,
-                                 delete_reana_db_secret,
-                                 is_reana_db_secret_created)
-from reana_cluster.version import __version__
 from reana_commons.utils import click_table_printer
+
+from reana_cluster.config import (reana_cluster_ready_necessary_components,
+                                  reana_env_exportable_info_components)
+from reana_cluster.utils import build_component_url
+from reana_cluster.version import __version__
 
 
 @click.command(help='Bring REANA cluster down, i.e. delete all '
@@ -37,12 +35,21 @@ from reana_commons.utils import click_table_printer
     '--namespace',
     default='default',
     help='Namespace of the components which configuration should be deleted.')
+@click.option(
+    '--delete-traefik/--skip-delete-traefik', default=False,
+    help='Should the REANA traefik be deleted? By default Traefik is not '
+         'deleted.')
+@click.option(
+    '--delete-secrets/--skip-delete-secrets', default=False,
+    help='Should the REANA secrets be deleted? By default secrets are not '
+         'deleted.')
 @click.pass_context
-def down(ctx, remove_persistent_storage, namespace):
+def down(ctx, remove_persistent_storage, namespace, delete_traefik,
+         delete_secrets):
     """Bring REANA cluster down, i.e. deletes all deployed components."""
     try:
-        delete_reana_db_secret(namespace)
-        ctx.obj.backend.down(namespace)
+        ctx.obj.backend.down(namespace, delete_traefik=delete_traefik,
+                             delete_secrets=delete_secrets)
     except Exception as e:
         logging.debug(str(e))
 
@@ -158,41 +165,24 @@ def restart(ctx, remove_persistent_storage):
     help='Path where generated cluster configuration files should be saved.'
          'If no value is given no files are outputted.')
 @click.option(
-    '-t',
-    '--traefik', is_flag=True,
-    help='Install and initialize Traefik')
-@click.option(
-    '--generate-db-secrets', is_flag=True,
-    help='Create all necessary database secrets. Do not use this in'
-         'production deployments.')
-@click.option(
     '--namespace', default='default',
     help='Kubernetes namespace name to deploy reana-server')
+@click.option(
+    '--create-traefik/--skip-create-traefik', default=True,
+    help='Should the REANA traefik be created?.')
+@click.option(
+    '--interactive', is_flag=True,
+    help='Enter configuration via command prompt.')
 @click.pass_context
-def init(ctx,
-         skip_initialization,
-         output,
-         traefik,
-         namespace,
-         generate_db_secrets):
+def init(ctx, skip_initialization, output, namespace, create_traefik, interactive):
     """Initialize REANA cluster."""
     try:
-        reana_db_secret_exists = is_reana_db_secret_created(namespace)
-        if not reana_db_secret_exists and generate_db_secrets:
-            create_reana_db_secret()
-        elif not reana_db_secret_exists:
-            click.echo(click.style(
-                'The following needed secrets were not created, or do not have'
-                'the expected format:\n{} '.format(
-                    DEFAULT_REANA_DB_SECRET_NAME), fg='red'))
-            sys.exit(1)
-
         backend = ctx.obj.backend
         if not skip_initialization:
             logging.info('Connecting to {cluster} at {url}'
                          .format(cluster=backend.cluster_type,
                                  url=backend.cluster_url))
-            backend.init(namespace, traefik)
+            backend.init(namespace, create_traefik, interactive)
             click.echo(
                 click.style("REANA cluster is initialised.", fg='green'))
 
@@ -277,7 +267,7 @@ def cli_verify_components(ctx):
 
 
 @click.command(help='Display the status of each component'
-                    ' and if the cluster is ready.')
+               ' and if the cluster is ready.')
 @click.option(
     '--component',
     default=None,

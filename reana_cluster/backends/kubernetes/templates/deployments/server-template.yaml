@@ -13,6 +13,7 @@ spec:
       labels:
         app: server
     spec:
+      serviceAccountName: {{REANA_SERVICE_ACCOUNT_NAME}}
       containers:
       - name: server
         image: {{SERVER_IMAGE}}
@@ -57,8 +58,31 @@ spec:
             secretKeyRef:
               name: reana-db-secrets
               key: password
-        - name: REANA_SQLALCHEMY_DATABASE_URI
-          value: postgresql+psycopg2://$(REANA_DB_USERNAME):$(REANA_DB_PASSWORD)@$(REANA_DB_HOST):$(REANA_DB_PORT)/$(REANA_DB_NAME)
+        - name: CERN_CONSUMER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: reana-cern-sso-secrets
+              key: CERN_CONSUMER_KEY
+        - name: CERN_CONSUMER_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: reana-cern-sso-secrets
+              key: CERN_CONSUMER_SECRET
+        - name: REANA_GITLAB_OAUTH_APP_ID
+          valueFrom:
+            secretKeyRef:
+              name: reana-cern-gitlab-secrets
+              key: REANA_GITLAB_OAUTH_APP_ID
+        - name: REANA_GITLAB_OAUTH_APP_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: reana-cern-gitlab-secrets
+              key: REANA_GITLAB_OAUTH_APP_SECRET
+        - name: REANA_GITLAB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: reana-cern-gitlab-secrets
+              key: REANA_GITLAB_HOST
         {% endif %}
       - name: scheduler
         image: {{SERVER_IMAGE}}
