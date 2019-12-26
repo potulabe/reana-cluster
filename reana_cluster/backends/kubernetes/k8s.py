@@ -19,7 +19,7 @@ from jinja2 import (Environment, FileSystemLoader, TemplateNotFound,
                     TemplateSyntaxError)
 from kubernetes import client as k8s_client
 from kubernetes import config as k8s_config
-from kubernetes.client import Configuration
+from kubernetes.client import Configuration, ApiClient
 from kubernetes.client.rest import ApiException
 from pkg_resources import parse_version
 
@@ -98,6 +98,7 @@ class KubernetesBackend(ReanaBackendABC):
             cluster_spec['cluster'].get('config_context', None)
 
         k8s_api_client_config = Configuration()
+        k8s_api_client_config.verify_ssl = False
 
         k8s_config.load_kube_config(kubeconfig, self.kubeconfig_context,
                                     k8s_api_client_config)
@@ -105,12 +106,13 @@ class KubernetesBackend(ReanaBackendABC):
         Configuration.set_default(k8s_api_client_config)
 
         # Instantiate clients for various Kubernetes REST APIs
-        self._corev1api = k8s_client.CoreV1Api()
-        self._versionapi = k8s_client.VersionApi()
-        self._appsv1api = k8s_client.AppsV1Api()
-        self._rbacauthorizationv1api = k8s_client.RbacAuthorizationV1Api()
-        self._storagev1api = k8s_client.StorageV1Api()
-        self._networkingv1api = k8s_client.NetworkingV1beta1Api()
+        api_client = ApiClient(k8s_api_client_config)
+        self._corev1api = k8s_client.CoreV1Api(api_client)
+        self._versionapi = k8s_client.VersionApi(api_client)
+        self._appsv1api = k8s_client.AppsV1Api(api_client)
+        self._rbacauthorizationv1api = k8s_client.RbacAuthorizationV1Api(api_client)
+        self._storagev1api = k8s_client.StorageV1Api(api_client)
+        self._networkingv1api = k8s_client.NetworkingV1beta1Api(api_client)
 
         self.k8s_api_client_config = k8s_api_client_config
 
