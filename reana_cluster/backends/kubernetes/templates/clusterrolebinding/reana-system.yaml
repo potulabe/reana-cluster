@@ -10,4 +10,3 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{REANA_SERVICE_ACCOUNT_NAME}}
-  namespace: {{NAMESPACE}}
