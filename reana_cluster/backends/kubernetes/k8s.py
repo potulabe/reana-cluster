@@ -325,6 +325,8 @@ class KubernetesBackend(ReanaBackendABC):
 
     def init(self, namespace, traefik, interactive):
         """Initialize REANA cluster, i.e. deploy REANA components to backend.
+        :param namespace: namespace, in which all the objects should be created
+        :type namespace: str
 
         :param namespace: namespace, in which all the objects should be created
         :type namespace: str
