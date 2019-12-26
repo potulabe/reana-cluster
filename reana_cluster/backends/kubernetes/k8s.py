@@ -325,6 +325,8 @@ class KubernetesBackend(ReanaBackendABC):
 
     def init(self, namespace, traefik, interactive):
         """Initialize REANA cluster, i.e. deploy REANA components to backend.
+        :param namespace: namespace, in which all the objects should be created
+        :type namespace: str
 
         :param traefik: Boolean flag determines if traefik should be
             initialized.
@@ -351,7 +353,7 @@ class KubernetesBackend(ReanaBackendABC):
             self.initialize_traefik()
 
         from reana_cluster.utils import check_needed_secrets_are_created
-        check_needed_secrets_are_created(interactive=interactive)
+        check_needed_secrets_are_created(namespace, interactive=interactive)
 
         for manifest in self.cluster_conf:
             try:
@@ -363,7 +365,7 @@ class KubernetesBackend(ReanaBackendABC):
                         body=manifest,
                         namespace=manifest['metadata'].get('namespace',
                                                            namespace))
-
+                # TODO: namespace should be created earlier
                 elif manifest['kind'] == 'Namespace':
                     self._corev1api.create_namespace(body=manifest)
 
@@ -382,15 +384,20 @@ class KubernetesBackend(ReanaBackendABC):
                 elif manifest['kind'] == 'ClusterRole':
                     self._rbacauthorizationv1api.create_cluster_role(
                             body=manifest)
+
                 elif manifest['kind'] == 'ClusterRoleBinding':
-                    self._rbacauthorizationv1api.create_cluster_role_binding(
+                    for subject in manifest['subjects']:
+                        ns = subject.get('namespace', namespace)
+                        subject.update({'namespace': ns})
+                    self._rbacauthorizationv1api. \
+                        create_cluster_role_binding(
                             body=manifest)
 
                 elif manifest['kind'] == 'Ingress':
                     self._networkingv1api.create_namespaced_ingress(
                         body=manifest,
                         namespace=manifest['metadata'].get('namespace',
-                                                           'default'))
+                                                           namespace))
 
                 elif manifest['kind'] == 'ServiceAccount':
                     self._corev1api.create_namespaced_service_account(
@@ -443,18 +450,18 @@ class KubernetesBackend(ReanaBackendABC):
                  ' https://kubernetes-charts.storage.googleapis.com/')
             add_helm_repo_cmd = shlex.split(add_helm_repo_cmd)
             subprocess.check_output(add_helm_repo_cmd)
-            namespace = 'kube-system'
+            traefik_namespace = 'kube-system'
             label_selector = 'app=traefik'
             cmd = ('helm install {} stable/traefik --namespace {} '
                    ' --values {} ').format(
                        traefik_release_name,
-                       namespace,
+                       traefik_namespace,
                        traefik_configuration_file_path,
                        traefik_release_name)
             cmd = shlex.split(cmd)
             subprocess.check_output(cmd)
             traefik_objects = self._corev1api.list_namespaced_service(
-                namespace=namespace,
+                namespace=traefik_namespace,
                 label_selector=label_selector,
                 limit=2)
             traefik_dashboard_body = None
@@ -465,7 +472,7 @@ class KubernetesBackend(ReanaBackendABC):
             traefik_dashboard_body.spec.type = 'NodePort'
             self._corev1api.patch_namespaced_service(
                 name=traefik_dashboard_body.metadata.name,
-                namespace=namespace,
+                namespace=traefik_namespace,
                 body=traefik_dashboard_body
             )
         except Exception as e:
@@ -497,7 +504,7 @@ class KubernetesBackend(ReanaBackendABC):
         """
         raise NotImplementedError()
 
-    def down(self, namespace='default', delete_traefik=False, delete_secrets=False):
+    def down(self, namespace, delete_traefik=False, delete_secrets=False):
         """Bring REANA cluster down, i.e. deletes all deployed components.
 
         Deletes all Kubernetes Deployments, Namespaces, Resourcequotas and
@@ -523,10 +530,6 @@ class KubernetesBackend(ReanaBackendABC):
 
         if not self._cluster_running():
             pass
-
-        # All K8S objects seem to use default -namespace.
-        # Is this true always, or do we create something for non-default
-        # namespace (in the future)?
 
         for manifest in self.cluster_conf:
             try:
@@ -619,8 +622,7 @@ class KubernetesBackend(ReanaBackendABC):
                     delete_namespaced_persistent_volume_claim(
                         name=pvc.metadata.name,
                         body=k8s_client.V1DeleteOptions(),
-                        namespace=manifest['metadata'].get('namespace',
-                                                           namespace))
+                        namespace=namespace)
         # delete all CVMFS storage classes
         scs = self._storagev1api.list_storage_class()
         for sc in scs.items:
@@ -631,20 +633,20 @@ class KubernetesBackend(ReanaBackendABC):
 
         if delete_traefik:
             from reana_cluster.config import traefik_release_name
-            namespace = 'kube-system'
-            helm_ls_cmd = 'helm ls -n {}'.format(namespace)
+            traefik_namespace = 'kube-system'
+            helm_ls_cmd = 'helm ls -n {}'.format(traefik_namespace)
             helm_ls_cmd = shlex.split(helm_ls_cmd)
             helm_ls_output = \
                 subprocess.check_output(helm_ls_cmd).decode('UTF-8')
             if traefik_release_name in helm_ls_output:
                 cmd = 'helm del --namespace {} {}'.format(
-                    namespace,
+                    traefik_namespace,
                     traefik_release_name)
                 cmd = shlex.split(cmd)
                 subprocess.check_output(cmd)
         if delete_secrets:
             from reana_cluster.utils import delete_reana_secrets
-            delete_reana_secrets()
+            delete_reana_secrets(namespace)
 
         return True
 
@@ -746,11 +748,11 @@ class KubernetesBackend(ReanaBackendABC):
 
     def get_traefik_ports(self):
         """Return the list of Traefik ports if Traefik is present."""
-        namespace = 'kube-system'
+        traefik_namespace = 'kube-system'
         label_selector = 'app=traefik'
         try:
             traefik_objects = self._corev1api.list_namespaced_service(
-                namespace=namespace,
+                namespace=traefik_namespace,
                 label_selector=label_selector,
                 limit=2)
             ports = []
@@ -765,16 +767,16 @@ class KubernetesBackend(ReanaBackendABC):
             if e.reason == "Not Found":
                 logging.error("K8s traefik objects were not found.")
             else:
-                logging.error('Exception when calling '
-                              'CoreV1Api->list_namespaced_service:\n {e}'
-                              .format(e))
+                logging.error('Exception when calling \
+                              CoreV1Api->list_namespaced_service:\n {e}'
+                              .format(e=e))
             return None
         except Exception as e:
-            logging.error('Something went wrong. Traefik port '
-                          'was not found:\n {e}'.format(e))
+            logging.error('Something went wrong. Traefik port \
+                          was not found:\n {e}'.format(e=e))
             return None
 
-    def verify_components(self):
+    def verify_components(self, namespace):
         """Verify that REANA components are setup according to specifications.
 
         Verifies that REANA components are set up as specified in REANA
@@ -814,7 +816,7 @@ class KubernetesBackend(ReanaBackendABC):
                         'template']['spec']['containers'][0]['image']
 
                     deployed_comp = self._appsv1api. \
-                        read_namespaced_deployment(component_name, 'default')
+                        read_namespaced_deployment(component_name, namespace)
 
                     logging.debug(deployed_comp)
 
@@ -951,7 +953,7 @@ class KubernetesBackend(ReanaBackendABC):
 
         return k8s_version_compatibility
 
-    def get_components_status(self, component=None):
+    def get_components_status(self, namespace, component=None):
         """Return status for components in cluster.
 
         Gets all pods in the k8s namespace and matches them with the
@@ -976,7 +978,7 @@ class KubernetesBackend(ReanaBackendABC):
 
         if component and component.startswith('reana-'):
             component = component.replace('reana-', '')
-        all_pods = self._corev1api.list_namespaced_pod('default')
+        all_pods = self._corev1api.list_namespaced_pod(namespace)
         components_status = dict()
 
         if component:
@@ -999,7 +1001,7 @@ class KubernetesBackend(ReanaBackendABC):
                                   components_status)
         return components_status
 
-    def exec_into_component(self, component_name, command):
+    def exec_into_component(self, namespace, component_name, command):
         """Execute a command inside a component.
 
         :param component_name: Name of the component where the command will be
@@ -1017,12 +1019,13 @@ class KubernetesBackend(ReanaBackendABC):
 
         component_pod_name = subprocess.check_output([
             'kubectl', 'get', 'pods',
+            '--namespace', namespace,
             '-l=app={component_name}'.format(component_name=component_name),
             '-o', 'jsonpath="{.items[0].metadata.name}"'
         ]).decode('UTF-8').replace('"', '')
 
         component_shell = [
-            'kubectl', 'exec', '-t', component_pod_name, '--']
+            'kubectl', 'exec', '-t', component_pod_name, '--namespace', namespace, '--']
 
         command_inside_component = []
         command_inside_component.extend(component_shell)

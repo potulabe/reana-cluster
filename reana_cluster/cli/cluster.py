@@ -117,6 +117,7 @@ def env(ctx, namespace, insecure_url, include_admin_token, server_hostname):
                 'SELECT access_token FROM user_']
             sql_query_result = \
                 ctx.obj.backend.exec_into_component(
+                    namespace,
                     'db',
                     get_admin_token_sql_query_cmd)
             # We get the token from the SQL query result
@@ -252,11 +253,14 @@ def cli_verify_backend(ctx):
                help='Only verify that configuration of REANA components '
                     'deployed to REANA cluster matches to what is specified '
                     'in REANA cluster specifications file.')
+@click.option(
+    '--namespace', default='default',
+    help='Kubernetes namespace name of components to verify')
 @click.pass_context
-def cli_verify_components(ctx):
+def cli_verify_components(ctx, namespace):
     """Verify configuration of components deployed in a running cluster."""
     logging.debug(ctx.obj.backend.cluster_spec)
-    matching_components = ctx.obj.backend.verify_components()
+    matching_components = ctx.obj.backend.verify_components(namespace)
     data = []
     headers = ['component', 'image']
     for component_name in matching_components:
@@ -269,14 +273,17 @@ def cli_verify_components(ctx):
 @click.command(help='Display the status of each component'
                ' and if the cluster is ready.')
 @click.option(
+    '--namespace', default='default',
+    help='Kubernetes namespace name of component')
+@click.option(
     '--component',
     default=None,
     help='Specify for which component you want the status'
          'e.g. workflow-controller.')
 @click.pass_context
-def status(ctx, component):
+def status(ctx, namespace, component):
     """Display the status of cluster components and if the cluster is ready."""
-    components_status = ctx.obj.backend.get_components_status(component)
+    components_status = ctx.obj.backend.get_components_status(namespace, component)
 
     # detect if all components are in running state:
     all_running = True

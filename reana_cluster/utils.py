@@ -136,7 +136,7 @@ def is_secret_created(secret_name, namespace):
         return False
 
 
-def create_secret(secret_name, secrets_mapping):
+def create_secret(secret_name, secrets_mapping, namespace):
     """Create a Kubernetes secret."""
     try:
         cmd = 'kubectl create secret generic  {} --namespace={namespace}'.format(secret_name,
@@ -167,10 +167,10 @@ def create_reana_db_secret(secret_name, interactive, namespace):
         'user': user or DEFAULT_REANA_DB_USER,
         'password': password or generate_password()
     }
-    create_secret(secret_name, secrets_mapping)
+    create_secret(secret_name, secrets_mapping, namespace)
 
 
-def create_reana_cern_sso_secret(secret_name, interactive):
+def create_reana_cern_sso_secret(secret_name, interactive, namespace):
     """Create secrets for the CERN SSO integration."""
     cern_consumer_key = 'sso-client-id'
     cern_consumer_secret = ''
@@ -187,10 +187,10 @@ def create_reana_cern_sso_secret(secret_name, interactive):
         'CERN_CONSUMER_KEY': cern_consumer_key,
         'CERN_CONSUMER_SECRET': cern_consumer_secret or generate_password()
     }
-    create_secret(secret_name, secrets_mapping)
+    create_secret(secret_name, secrets_mapping, namespace)
 
 
-def create_reana_cern_gitlab_secret(secret_name, interactive):
+def create_reana_cern_gitlab_secret(secret_name, interactive, namespace):
     """Create secrets for the CERN SSO integration."""
     gitlab_oauth_app_id = 'gitlab-oauth-app-id'
     gitlab_oauth_app_secret = ''
@@ -214,7 +214,7 @@ def create_reana_cern_gitlab_secret(secret_name, interactive):
         gitlab_oauth_app_secret or generate_password(),
         'REANA_GITLAB_HOST': gitlab_host
     }
-    create_secret(secret_name, secrets_mapping)
+    create_secret(secret_name, secrets_mapping, namespace)
 
 
 def delete_reana_secrets(namespace):
@@ -222,7 +222,8 @@ def delete_reana_secrets(namespace):
     try:
         for secret in DEFAULT_REANA_SECRETS_LIST:
             if is_secret_created(secret, namespace):
-                cmd = 'kubectl delete secret {0} --namespace={namespace}'.format(secret, namespace)
+                cmd = 'kubectl delete secret {0} --namespace={namespace}'.format(secret,
+                                                                                 namespace=namespace)
                 result = subprocess.check_output(cmd, shell=True)
                 logging.info(result)
     except subprocess.CalledProcessError as err:
@@ -241,7 +242,7 @@ def generate_password():
     return password
 
 
-def check_needed_secrets_are_created(interactive=False):
+def check_needed_secrets_are_created(namespace, interactive=False):
     """Check if the needed secrets are created, it can autogenerate them."""
     create_reana_secret = {
         DEFAULT_REANA_DB_SECRET_NAME: create_reana_db_secret,
@@ -250,6 +251,6 @@ def check_needed_secrets_are_created(interactive=False):
     }
 
     for secret_name, create_func in create_reana_secret.items():
-        secret_exists = is_secret_created(secret_name)
+        secret_exists = is_secret_created(secret_name, namespace)
         if not secret_exists:
-            create_func(secret_name, interactive)
+            create_func(secret_name, interactive, namespace)
