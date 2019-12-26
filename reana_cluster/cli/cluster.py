@@ -175,7 +175,8 @@ def restart(ctx, remove_persistent_storage):
     '--interactive', is_flag=True,
     help='Enter configuration via command prompt.')
 @click.pass_context
-def init(ctx, skip_initialization, output, namespace, create_traefik, interactive):
+def init(ctx, skip_initialization, output, namespace,
+         create_traefik, interactive):
     """Initialize REANA cluster."""
     try:
         backend = ctx.obj.backend
@@ -283,7 +284,8 @@ def cli_verify_components(ctx, namespace):
 @click.pass_context
 def status(ctx, namespace, component):
     """Display the status of cluster components and if the cluster is ready."""
-    components_status = ctx.obj.backend.get_components_status(namespace, component)
+    components_status = ctx.obj.backend\
+        .get_components_status(namespace, component)
 
     # detect if all components are in running state:
     all_running = True

@@ -327,7 +327,7 @@ class KubernetesBackend(ReanaBackendABC):
 
     def init(self, namespace, traefik, interactive):
         """Initialize REANA cluster, i.e. deploy REANA components to backend.
-        
+
         :param namespace: namespace, in which all the objects should be created
         :type namespace: str
 
@@ -1031,7 +1031,8 @@ class KubernetesBackend(ReanaBackendABC):
         ]).decode('UTF-8').replace('"', '')
 
         component_shell = [
-            'kubectl', 'exec', '-t', component_pod_name, '--namespace', namespace, '--']
+            'kubectl', 'exec', '-t', component_pod_name,
+            '--namespace', namespace, '--']
 
         command_inside_component = []
         command_inside_component.extend(component_shell)

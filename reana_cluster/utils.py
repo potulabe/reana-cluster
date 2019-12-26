@@ -123,8 +123,8 @@ def build_component_url(host, ports, insecure=False):
 def is_secret_created(secret_name, namespace):
     """Check if the secret is created."""
     try:
-        cmd = 'kubectl describe secret {0} --namespace={namespace}'.format(secret_name,
-                                                                           namespace=namespace)
+        cmd = 'kubectl describe secret {0} --namespace={namespace}'\
+            .format(secret_name, namespace=namespace)
         result = subprocess.check_output(cmd, shell=True,
                                          stderr=subprocess.STDOUT)
         output = result.decode('utf-8')
@@ -139,8 +139,8 @@ def is_secret_created(secret_name, namespace):
 def create_secret(secret_name, secrets_mapping, namespace):
     """Create a Kubernetes secret."""
     try:
-        cmd = 'kubectl create secret generic  {} --namespace={namespace}'.format(secret_name,
-                                                                                 namespace=namespace)
+        cmd = 'kubectl create secret generic  {} --namespace={namespace}'\
+            .format(secret_name, namespace=namespace)
         for key, value in secrets_mapping.items():
             cmd += ' --from-literal={0}={1}'.format(key, value)
         result = subprocess.check_output(cmd, shell=True)
@@ -222,8 +222,8 @@ def delete_reana_secrets(namespace):
     try:
         for secret in DEFAULT_REANA_SECRETS_LIST:
             if is_secret_created(secret, namespace):
-                cmd = 'kubectl delete secret {0} --namespace={namespace}'.format(secret,
-                                                                                 namespace=namespace)
+                cmd = 'kubectl delete secret {0} --namespace={namespace}'\
+                    .format(secret, namespace=namespace)
                 result = subprocess.check_output(cmd, shell=True)
                 logging.info(result)
     except subprocess.CalledProcessError as err:
